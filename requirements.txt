@@ -1,0 +1,5 @@
+requests
+PyYAML
+pydantic
+privatbank-api-client
+python-telegram-bot

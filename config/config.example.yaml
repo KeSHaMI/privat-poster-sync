@@ -1,0 +1,17 @@
+privatbank:
+  token: "YOUR_PRIVATBANK_API_TOKEN" # Replace with your PrivatBank API Token
+  iban: "YOUR_PRIVATBANK_IBAN"      # Replace with your PrivatBank IBAN
+
+poster:
+  token: "YOUR_POSTER_API_TOKEN" # Replace with your actual token
+  account_id: YOUR_POSTER_BANK_ACCOUNT_ID # Replace with the ID of the specific bank account in Poster
+
+telegram:
+  token: "YOUR_TELEGRAM_BOT_TOKEN" # Bot token from BotFather
+  chat_id: "YOUR_TARGET_CHAT_ID"   # User ID or Group Chat ID
+
+settings:
+  sync_days_lookback: 1 # Number of past days to fetch transactions for (e.g., 1 means yesterday and today)
+  amount_tolerance: 0.01 # Maximum difference allowed between amounts to consider them a match (e.g., 0.01 for 1 kopeck/cent)
+  log_file: "logs/sync.log" # Path to the log file
+  date_format: "%Y-%m-%d" # Date format used internally
