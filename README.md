@@ -1,3 +1,5 @@
+# 100% vibe-coded with copilot and gemini 2.5 pro within 3 hours, use at own risk and/or pleasure
+
 # PrivatBank-Poster Sync Tool
 
 This script synchronizes financial transactions between a PrivatBank business account and a Poster POS account. It fetches transactions from both platforms for a specified lookback period, compares them based on amount and time proximity, and generates a report detailing matched pairs, unmatched transactions, and balance differences.
