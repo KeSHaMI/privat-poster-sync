@@ -46,32 +46,50 @@ class TransactionComparator:
         """
         logger.info(f"Starting comparison: {len(privat_transactions)} PrivatBank tx, {len(poster_transactions)} Poster tx.")
 
+        # Log transaction details for debugging
+        for i, tx in enumerate(privat_transactions):
+            logger.debug(f"Privat tx {i}: id={tx.id}, amount={tx.amount:.2f}, time={tx.time}")
+        for i, tx in enumerate(poster_transactions):
+            logger.debug(f"Poster tx {i}: id={tx.id}, amount={tx.amount:.2f}, time={tx.time}")
+
         # Track indices of matched transactions
         privat_indices_matched: Set[int] = set()
         poster_indices_matched: Set[int] = set()
         matched_pairs: List[Dict[str, NormalizedTransaction]] = []
 
-        # Iterate through PrivatBank transactions (credits only for matching Poster payments)
+        # Iterate through PrivatBank transactions (match all transactions, not just credits)
         for i, p_tx in enumerate(privat_transactions):
-            # Skip non-credits, transactions without time, or already matched ones
-            if p_tx.amount <= 0 or p_tx.time is None or i in privat_indices_matched:
+            # Skip transactions without time or already matched ones
+            if p_tx.time is None or i in privat_indices_matched:
                 continue
 
             best_match_j: int = -1
+            best_match_diff: float = float('inf')  # Track the smallest amount difference
 
             for j, s_tx in enumerate(poster_transactions):
                 # Skip transactions without time or already matched ones
                 if s_tx.time is None or j in poster_indices_matched:
                     continue
 
-                # Check 1: Amount match
+                # Check for sign consistency (both positive or both negative)
+                same_sign = (p_tx.amount > 0 and s_tx.amount > 0) or (p_tx.amount < 0 and s_tx.amount < 0)
+
+                # Check for amount match
                 amount_diff = abs(p_tx.amount - s_tx.amount)
-                amount_match: bool = amount_diff <= self.amount_tolerance
+                amount_match: bool = same_sign and amount_diff <= self.amount_tolerance
+
+                # Log potential near-matches that are just outside tolerance
+                if not amount_match:
+                    if not same_sign:
+                        logger.debug(f"Sign mismatch: Privat tx {p_tx.id} ({p_tx.amount:.2f}) with Poster tx {s_tx.id} ({s_tx.amount:.2f})")
+                    elif amount_diff <= self.amount_tolerance * 2:
+                        logger.debug(f"Near match skipped: Privat tx {p_tx.id} ({p_tx.amount:.2f}) with Poster tx {s_tx.id} ({s_tx.amount:.2f}), diff: {amount_diff:.2f} > tolerance {self.amount_tolerance}")
 
                 if amount_match:
-                    # Found a potential match. Prefer the one closest in time if multiple exist.
-                    if best_match_j == -1:
-                         best_match_j = j
+                    # Found a potential match. Prefer exact matches (amount_diff == 0) over close matches
+                    if best_match_j == -1 or amount_diff < best_match_diff:
+                        best_match_j = j
+                        best_match_diff = amount_diff
 
             if best_match_j != -1:
                 # Found a best match for this PrivatBank transaction
@@ -81,10 +99,11 @@ class TransactionComparator:
                 })
                 privat_indices_matched.add(i)
                 poster_indices_matched.add(best_match_j)
-                # Corrected logging reference
-                logger.debug(f"Matched Privat tx {p_tx.id} with Poster tx {poster_transactions[best_match_j].id}")
+                # Corrected logging reference with amount difference information
+                logger.debug(f"Matched Privat tx {p_tx.id} with Poster tx {poster_transactions[best_match_j].id} (amount diff: {best_match_diff:.2f})")
             else:
-                pass
+                # Log why this transaction wasn't matched
+                logger.debug(f"No match found for Privat tx {p_tx.id} (amount: {p_tx.amount:.2f}, time: {p_tx.time})")
 
         # Filter out matched transactions
         final_unmatched_privat: List[NormalizedTransaction] = [
