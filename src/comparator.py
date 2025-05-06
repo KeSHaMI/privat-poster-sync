@@ -134,6 +134,24 @@ class TransactionComparator:
             tx for i, tx in enumerate(poster_transactions) if i not in poster_indices_matched
         ]
 
+        # Filter out transactions with "Комісія" or "комісія" in description
+        original_unmatched_privat_count = len(final_unmatched_privat)
+        final_unmatched_privat = [
+            tx for tx in final_unmatched_privat 
+            if not (tx.description and ("Комісія" in tx.description or "комісія" in tx.description))
+        ]
+        filtered_privat_count = original_unmatched_privat_count - len(final_unmatched_privat)
+
+        original_unmatched_poster_count = len(final_unmatched_poster)
+        final_unmatched_poster = [
+            tx for tx in final_unmatched_poster 
+            if not (tx.description and ("Комісія" in tx.description or "комісія" in tx.description))
+        ]
+        filtered_poster_count = original_unmatched_poster_count - len(final_unmatched_poster)
+
+        if filtered_privat_count > 0 or filtered_poster_count > 0:
+            logger.info(f"Filtered out {filtered_privat_count} PrivatBank and {filtered_poster_count} Poster transactions with 'Комісія' in description")
+
         logger.info(f"Comparison finished: {len(matched_pairs)} pairs matched.")
         logger.info(f"Unmatched PrivatBank transactions: {len(final_unmatched_privat)}")
         logger.info(f"Unmatched Poster transactions: {len(final_unmatched_poster)}")
@@ -153,6 +171,24 @@ class TransactionComparator:
             logger.warning("Balance comparison skipped: one or both balances not provided.")
         # ---
 
+        # Filter out transactions with "Комісія" or "комісія" in description from all transactions
+        original_all_privat_count = len(privat_transactions)
+        filtered_privat_transactions = [
+            tx for tx in privat_transactions 
+            if not (tx.description and ("Комісія" in tx.description or "комісія" in tx.description))
+        ]
+        filtered_all_privat_count = original_all_privat_count - len(filtered_privat_transactions)
+
+        original_all_poster_count = len(poster_transactions)
+        filtered_poster_transactions = [
+            tx for tx in poster_transactions 
+            if not (tx.description and ("Комісія" in tx.description or "комісія" in tx.description))
+        ]
+        filtered_all_poster_count = original_all_poster_count - len(filtered_poster_transactions)
+
+        if filtered_all_privat_count > 0 or filtered_all_poster_count > 0:
+            logger.info(f"Filtered out {filtered_all_privat_count} PrivatBank and {filtered_all_poster_count} Poster transactions with 'Комісія' in description from all transactions")
+
         # Return the comparison results
         report = SyncReport(
             start_date=start_date_str,
@@ -162,8 +198,8 @@ class TransactionComparator:
             matched_pairs_count=len(matched_pairs),
             unmatched_privat=final_unmatched_privat, # Use final list
             unmatched_poster=final_unmatched_poster, # Use final list
-            all_privat_transactions=privat_transactions, # Added
-            all_poster_transactions=poster_transactions, # Added
+            all_privat_transactions=filtered_privat_transactions, # Use filtered list
+            all_poster_transactions=filtered_poster_transactions, # Use filtered list
             privat_balance=privat_balance,
             poster_balance=poster_balance,
             error_message=error_message # Pass potential error message
