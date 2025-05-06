@@ -18,9 +18,11 @@ class TransactionComparator:
 
         Args:
             amount_tolerance: Maximum allowed difference between amounts.
+                              For transactions with "Метро" in description, a 10% tolerance is used.
         """
         self.amount_tolerance: float = amount_tolerance
-        logger.info(f"TransactionComparator initialized with tolerance +/-{amount_tolerance}")
+        logger.info(f"TransactionComparator initialized with standard tolerance +/-{amount_tolerance} " +
+                   f"and special 10% tolerance for transactions with 'Метро' in description")
 
     def compare(self, privat_transactions: List[NormalizedTransaction],
                 poster_transactions: List[NormalizedTransaction],
@@ -74,16 +76,29 @@ class TransactionComparator:
                 # Check for sign consistency (both positive or both negative)
                 same_sign = (p_tx.amount > 0 and s_tx.amount > 0) or (p_tx.amount < 0 and s_tx.amount < 0)
 
+                # Check for special case: transactions with "Метро" in description get 10% tolerance
+                is_metro_transaction = False
+                if p_tx.description and "Метро" in p_tx.description:
+                    is_metro_transaction = True
+                    # Calculate 10% of the transaction amount as tolerance
+                    metro_tolerance = abs(p_tx.amount) * 0.1
+                    # Use the higher of the two tolerances
+                    effective_tolerance = max(self.amount_tolerance, metro_tolerance)
+                    logger.debug(f"Using special 10% tolerance for Метро transaction: {effective_tolerance:.2f}")
+                else:
+                    effective_tolerance = self.amount_tolerance
+
                 # Check for amount match
                 amount_diff = abs(p_tx.amount - s_tx.amount)
-                amount_match: bool = same_sign and amount_diff <= self.amount_tolerance
+                amount_match: bool = same_sign and amount_diff <= effective_tolerance
 
                 # Log potential near-matches that are just outside tolerance
                 if not amount_match:
                     if not same_sign:
                         logger.debug(f"Sign mismatch: Privat tx {p_tx.id} ({p_tx.amount:.2f}) with Poster tx {s_tx.id} ({s_tx.amount:.2f})")
-                    elif amount_diff <= self.amount_tolerance * 2:
-                        logger.debug(f"Near match skipped: Privat tx {p_tx.id} ({p_tx.amount:.2f}) with Poster tx {s_tx.id} ({s_tx.amount:.2f}), diff: {amount_diff:.2f} > tolerance {self.amount_tolerance}")
+                    elif amount_diff <= effective_tolerance * 2:
+                        tolerance_type = "10% Метро" if is_metro_transaction else "standard"
+                        logger.debug(f"Near match skipped: Privat tx {p_tx.id} ({p_tx.amount:.2f}) with Poster tx {s_tx.id} ({s_tx.amount:.2f}), diff: {amount_diff:.2f} > {tolerance_type} tolerance {effective_tolerance:.2f}")
 
                 if amount_match:
                     # Found a potential match. Prefer exact matches (amount_diff == 0) over close matches
@@ -99,8 +114,14 @@ class TransactionComparator:
                 })
                 privat_indices_matched.add(i)
                 poster_indices_matched.add(best_match_j)
-                # Corrected logging reference with amount difference information
-                logger.debug(f"Matched Privat tx {p_tx.id} with Poster tx {poster_transactions[best_match_j].id} (amount diff: {best_match_diff:.2f})")
+
+                # Determine if this was a Метро transaction match
+                is_metro_match = p_tx.description and "Метро" in p_tx.description
+                tolerance_type = "10% Метро" if is_metro_match else "standard"
+
+                # Enhanced logging with amount difference and tolerance type information
+                logger.debug(f"Matched Privat tx {p_tx.id} with Poster tx {poster_transactions[best_match_j].id} " +
+                             f"(amount diff: {best_match_diff:.2f}, using {tolerance_type} tolerance)")
             else:
                 # Log why this transaction wasn't matched
                 logger.debug(f"No match found for Privat tx {p_tx.id} (amount: {p_tx.amount:.2f}, time: {p_tx.time})")
@@ -123,10 +144,11 @@ class TransactionComparator:
         if privat_balance is not None and poster_balance is not None:
             balance_diff = privat_balance - poster_balance
             logger.info(f"Balance Comparison: Privat={privat_balance}, Poster={poster_balance}, Diff={balance_diff:.2f}")
-            if abs(balance_diff) > self.amount_tolerance: # Use tolerance for balance too
+            # Always use the standard tolerance for balance comparison, not the special "Метро" tolerance
+            if abs(balance_diff) > self.amount_tolerance:
                  logger.warning(f"Significant balance difference detected: {balance_diff:.2f}")
             else:
-                 logger.info("Balances match within tolerance.")
+                 logger.info(f"Balances match within standard tolerance (+/-{self.amount_tolerance}).")
         else:
             logger.warning("Balance comparison skipped: one or both balances not provided.")
         # ---
