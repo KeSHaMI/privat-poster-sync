@@ -27,7 +27,6 @@ class SyncManager:
         self.poster_client: PosterClient = PosterClient(config['poster'])
         self.comparator: TransactionComparator = TransactionComparator(
             amount_tolerance=float(self.settings.get('amount_tolerance', 0.01)),
-            time_window_minutes=int(self.settings.get('time_window_minutes', 15))
         )
         logger.info("SyncManager initialized.")
 

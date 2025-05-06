@@ -12,17 +12,15 @@ class TransactionComparator:
     Compares lists of transactions from two sources (e.g., PrivatBank and Poster)
     to find matches and discrepancies based on amount and time proximity.
     """
-    def __init__(self, amount_tolerance: float = 0.01, time_window_minutes: int = 15):
+    def __init__(self, amount_tolerance: float = 2):
         """
         Initializes the comparator with matching tolerances.
 
         Args:
             amount_tolerance: Maximum allowed difference between amounts.
-            time_window_minutes: Maximum time difference (in minutes) allowed.
         """
         self.amount_tolerance: float = amount_tolerance
-        self.time_window: timedelta = timedelta(minutes=time_window_minutes)
-        logger.info(f"TransactionComparator initialized with tolerance +/-{amount_tolerance} and time window +/-{time_window_minutes} min.")
+        logger.info(f"TransactionComparator initialized with tolerance +/-{amount_tolerance}")
 
     def compare(self, privat_transactions: List[NormalizedTransaction],
                 poster_transactions: List[NormalizedTransaction],
@@ -60,7 +58,6 @@ class TransactionComparator:
                 continue
 
             best_match_j: int = -1
-            min_time_diff: timedelta = self.time_window # Start with max allowed diff
 
             for j, s_tx in enumerate(poster_transactions):
                 # Skip transactions without time or already matched ones
@@ -71,14 +68,9 @@ class TransactionComparator:
                 amount_diff = abs(p_tx.amount - s_tx.amount)
                 amount_match: bool = amount_diff <= self.amount_tolerance
 
-                # Check 2: Time match
-                time_diff: timedelta = abs(p_tx.time - s_tx.time)
-                time_match: bool = time_diff <= self.time_window
-
-                if amount_match and time_match:
+                if amount_match:
                     # Found a potential match. Prefer the one closest in time if multiple exist.
-                    if best_match_j == -1 or time_diff < min_time_diff:
-                         min_time_diff = time_diff
+                    if best_match_j == -1:
                          best_match_j = j
 
             if best_match_j != -1:
