@@ -118,18 +118,14 @@ class TelegramNotifier:
         # Limit total message length if necessary (Telegram limit is 4096 chars)
         message = "\n".join(lines)
         parse_mode = ParseMode.MARKDOWN # Default to Markdown
-        if len(message) > 4096:
-            # Translate warning message and truncation indicator
-            logger.warning("Повідомлення Telegram перевищує 4096 символів, обрізається та вимикається Markdown.")
-            # Simple truncation, remove Markdown to avoid parsing errors
-            message = message[:4080] + "\n... [ОБРІЗАНО]" # Adjusted length
-            parse_mode = None # Disable Markdown parsing for truncated messages
+        # The old truncation logic is removed, splitting will be handled in send_notification
 
         return message, parse_mode # Return both message and parse_mode
 
     async def send_notification(self, report: SyncReport) -> None:
         """
         Sends the formatted report as a Telegram message.
+        If the message is too long, it splits it into multiple messages.
 
         Args:
             report: The SyncReport object.
@@ -138,15 +134,47 @@ class TelegramNotifier:
             logger.warning("Telegram bot not initialized or chat_id missing. Skipping notification.")
             return
 
-        message, parse_mode = self._format_report_message(report) # Get message and parse_mode
+        full_message, parse_mode = self._format_report_message(report) # Get message and parse_mode
+
+        # Telegram's maximum message length is 4096 characters.
+        # We use a slightly smaller limit to be safe, especially with Markdown.
+        MAX_MESSAGE_LENGTH = 4000
+
+        if len(full_message) <= MAX_MESSAGE_LENGTH:
+            messages_to_send = [full_message]
+        else:
+            logger.info(f"Message length ({len(full_message)}) exceeds {MAX_MESSAGE_LENGTH}. Splitting into multiple messages.")
+            messages_to_send = []
+            current_chunk = ""
+            for line in full_message.split('\n'):
+                # Check if adding the next line (plus a newline character) would exceed the limit
+                if len(current_chunk) + len(line) + 1 > MAX_MESSAGE_LENGTH:
+                    if current_chunk: # Send the current chunk if it's not empty
+                        messages_to_send.append(current_chunk)
+                    current_chunk = line # Start a new chunk with the current line
+                else:
+                    if current_chunk: # Add a newline if it's not the first line of the chunk
+                        current_chunk += "\n"
+                    current_chunk += line
+
+            if current_chunk: # Add the last remaining chunk
+                messages_to_send.append(current_chunk)
+
+            if not messages_to_send: # Should not happen if full_message was not empty
+                 messages_to_send = [full_message[:MAX_MESSAGE_LENGTH]]
+
 
         try:
-            logger.info(f"Sending Telegram notification to chat ID: {self.chat_id}")
-            await self.bot.send_message(
-                chat_id=self.chat_id,
-                text=message,
-                parse_mode=parse_mode # Use the determined parse_mode
-            )
+            logger.info(f"Sending Telegram notification to chat ID: {self.chat_id} ({len(messages_to_send)} part(s))")
+            for i, message_part in enumerate(messages_to_send):
+                if not message_part.strip(): # Skip empty messages
+                    continue
+                logger.debug(f"Sending part {i+1}/{len(messages_to_send)}, length: {len(message_part)}")
+                await self.bot.send_message(
+                    chat_id=self.chat_id,
+                    text=message_part,
+                    parse_mode=parse_mode # Use the determined parse_mode for all parts
+                )
             logger.info("Telegram notification sent successfully.")
         except TelegramError as e:
             logger.error(f"Failed to send Telegram notification: {e}")

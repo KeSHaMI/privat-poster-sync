@@ -98,6 +98,7 @@ class PosterClient:
         }
         url: str = f"{self.base_url}/{endpoint}"
         normalized_transactions: List[NormalizedTransaction] = []
+        filtered_count = 0  # Counter for filtered transactions
 
         try:
             logger.info(f"Requesting Poster API: {url} with params (token hidden)")
@@ -116,7 +117,12 @@ class PosterClient:
                 for tx_data in raw_transactions:
                     normalized = self._normalize_transaction(tx_data)
                     if normalized and normalized.amount < 0: # Only include expenses
-                        normalized_transactions.append(normalized)
+                        # Filter out transactions with "Комісія" or "комісія" in description
+                        if normalized.description and ("Комісія" in normalized.description or "комісія" in normalized.description):
+                            logger.debug(f"Filtered out Poster transaction with 'Комісія' in description: {normalized.id}")
+                            filtered_count += 1
+                        else:
+                            normalized_transactions.append(normalized)
 
             except ValidationError as e:
                 logger.error(f"Poster API response validation failed: {e}")
@@ -133,6 +139,9 @@ class PosterClient:
             logger.error(f"An unexpected error occurred in PosterClient.get_transactions: {e}", exc_info=True)
 
         # --- Manual date filtering removed ---
+
+        if filtered_count > 0:
+            logger.info(f"Filtered out {filtered_count} Poster transactions with 'Комісія' in description")
 
         logger.info(f"Fetched {len(normalized_transactions)} expense transactions directly from Poster API.")
         return normalized_transactions # Return the transactions fetched (already filtered by API)

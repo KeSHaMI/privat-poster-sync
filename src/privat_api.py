@@ -125,6 +125,7 @@ class PrivatBankClient:
             A list of normalized transaction objects for the period defined by sync_days_lookback.
         """
         normalized_transactions: List[NormalizedTransaction] = []
+        filtered_count = 0  # Counter for filtered transactions
         if not self.client:
             logger.error("PrivatBank client not initialized.")
             return []
@@ -158,9 +159,14 @@ class PrivatBankClient:
                             if normalized:
                                 # --- FILTER ADDED: Only include expenses (negative amounts) ---
                                 if normalized.amount < 0:
-                                    # Optional: Add explicit date filtering here if library returns more than the target day(s)
-                                    # if start_datetime <= normalized.time <= end_datetime:
-                                    normalized_transactions.append(normalized)
+                                    # Filter out transactions with "Комісія" or "комісія" in description
+                                    if normalized.description and ("Комісія" in normalized.description or "комісія" in normalized.description):
+                                        logger.debug(f"Filtered out PrivatBank transaction with 'Комісія' in description: {normalized.id}")
+                                        filtered_count += 1
+                                    else:
+                                        # Optional: Add explicit date filtering here if library returns more than the target day(s)
+                                        # if start_datetime <= normalized.time <= end_datetime:
+                                        normalized_transactions.append(normalized)
                                 else:
                                     pass # Keep the pass statement or remove the else block
                                 # --- END FILTER ---
@@ -177,6 +183,9 @@ class PrivatBankClient:
 
         except Exception as e:
             logger.error(f"An unexpected error occurred in PrivatBankClient.get_transactions: {e}", exc_info=True)
+
+        if filtered_count > 0:
+            logger.info(f"Filtered out {filtered_count} PrivatBank transactions with 'Комісія' in description")
 
         return normalized_transactions
 
