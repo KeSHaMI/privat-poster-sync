@@ -59,8 +59,8 @@ class SyncReport(BaseModel):
     matched_pairs_count: int
     unmatched_privat: List[NormalizedTransaction] = []
     unmatched_poster: List[NormalizedTransaction] = []
-    all_privat_transactions: List[NormalizedTransaction] = [] # Added
-    all_poster_transactions: List[NormalizedTransaction] = [] # Added
+    all_privat_transactions: List[NormalizedTransaction] = []
+    all_poster_transactions: List[NormalizedTransaction] = []
     privat_balance: Optional[float] = None
     poster_balance: Optional[float] = None
     error_message: Optional[str] = None

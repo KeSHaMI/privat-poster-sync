@@ -1,9 +1,10 @@
 import logging
 import asyncio # Import asyncio
 from datetime import datetime, timedelta
-from typing import Dict, Any, Tuple, List, Optional
+from typing import Dict, Any, Tuple, List, Optional, Set # Added Set
+from pathlib import Path # Added Path
 
-from utils import load_config, setup_logging
+from utils import load_config, setup_logging, load_matched_ids, save_matched_ids, DEFAULT_MATCHED_IDS_PATH # Updated imports
 from privat_api import PrivatBankClient
 from poster_api import PosterClient
 from comparator import TransactionComparator
@@ -28,6 +29,7 @@ class SyncManager:
         self.comparator: TransactionComparator = TransactionComparator(
             amount_tolerance=float(self.settings.get('amount_tolerance', 0.01)),
         )
+        self.matched_ids_filepath: Path = Path(self.settings.get('matched_ids_store', DEFAULT_MATCHED_IDS_PATH))
         logger.info("SyncManager initialized.")
 
     def _get_date_range(self) -> Tuple[str, str]:
@@ -47,6 +49,9 @@ class SyncManager:
         logger.info("Starting PrivatBank-Poster Sync Process")
         start_date_str, end_date_str = self._get_date_range()
         logger.info(f"Syncing data from {start_date_str} to {end_date_str}")
+
+        # Load previously matched IDs
+        previously_matched_ids: Set[str] = load_matched_ids(self.matched_ids_filepath)
 
         privat_transactions: List[NormalizedTransaction] = []
         poster_transactions: List[NormalizedTransaction] = []
@@ -68,16 +73,19 @@ class SyncManager:
 
             # --- Phase 2: Compare Data & Generate Report ---
             logger.info("Comparing datasets and generating report...")
-            # Comparator now returns the final report object
-            report = self.comparator.compare(
+            # Comparator now returns the final report object and updated matched IDs
+            report, updated_matched_ids = self.comparator.compare(
                 privat_transactions=privat_transactions,
                 poster_transactions=poster_transactions,
                 start_date_str=start_date_str,
                 end_date_str=end_date_str,
+                previously_matched_ids=previously_matched_ids, # Pass loaded IDs
                 privat_balance=privat_balance,
                 poster_balance=poster_balance,
-                error_message=None # Pass None initially, error handled below
+                error_message=None
             )
+            # Save the updated set of matched IDs
+            save_matched_ids(self.matched_ids_filepath, updated_matched_ids)
 
         except Exception as e:
             logger.error(f"An critical error occurred during the sync process: {e}", exc_info=True)
