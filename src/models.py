@@ -16,6 +16,7 @@ class NormalizedTransaction(BaseModel):
     balance_after: Optional[float] = None # Optional: Only if available from source
     type: Literal['privat_transaction', 'poster_payment'] # Source type
     raw: Optional[Any] = None # Store the original raw data for debugging
+    matched_status: bool = False # Added
 
     class Config:
         # Allow storing raw data which might not be a standard Pydantic type
