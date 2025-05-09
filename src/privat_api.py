@@ -159,9 +159,10 @@ class PrivatBankClient:
                             if normalized:
                                 # --- FILTER ADDED: Only include expenses (negative amounts) ---
                                 if normalized.amount < 0:
-                                    # Filter out transactions with "Комісія" or "комісія" in description
-                                    if normalized.description and ("Комісія" in normalized.description or "комісія" in normalized.description):
-                                        logger.debug(f"Filtered out PrivatBank transaction with 'Комісія' in description: {normalized.id}")
+                                    desc_lower = normalized.description.lower() if normalized.description else ""
+                                    # Filter out transactions with "комісія" (Ukrainian і) or "комiсiя" (Latin i) in description
+                                    if ("комісія" in desc_lower) or ("комiсiя" in desc_lower):
+                                        logger.debug(f"Filtered out PrivatBank transaction with 'комісія' or 'комiсiя' (case-insensitive) in description: {normalized.id}")
                                         filtered_count += 1
                                     else:
                                         # Optional: Add explicit date filtering here if library returns more than the target day(s)

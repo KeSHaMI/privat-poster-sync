@@ -117,9 +117,9 @@ class PosterClient:
                 for tx_data in raw_transactions:
                     normalized = self._normalize_transaction(tx_data)
                     if normalized and normalized.amount < 0: # Only include expenses
-                        # Filter out transactions with "Комісія" or "комісія" in description
-                        if normalized.description and ("Комісія" in normalized.description or "комісія" in normalized.description):
-                            logger.debug(f"Filtered out Poster transaction with 'Комісія' in description: {normalized.id}")
+                        # Filter out transactions with "Комісія" or "комісія" in description (case-insensitive)
+                        if normalized.description and "комісія" in normalized.description.lower():
+                            logger.debug(f"Filtered out Poster transaction with 'комісія' (case-insensitive) in description: {normalized.id}")
                             filtered_count += 1
                         else:
                             normalized_transactions.append(normalized)
