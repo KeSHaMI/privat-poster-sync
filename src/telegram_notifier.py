@@ -44,6 +44,10 @@ class TelegramNotifier:
         time_str = tx.time.strftime('%Y-%m-%d %H:%M') if tx.time else "Немає часу"
         # Use the full description, don't truncate
         desc = tx.description
+        # Sanitize description: remove Markdown special characters
+        if desc:
+            desc = desc.replace('*', '').replace('_', '').replace('`', '')
+
         # Use monospace for amounts for better alignment
         amount_str = f"`{tx.amount:<8.2f}`"
         currency_str = tx.currency or ''
